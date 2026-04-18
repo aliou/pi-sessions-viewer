@@ -88,7 +88,8 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
     mainContent = `<p class="error">Could not load <strong>${dataset}</strong>: ${error}</p>`;
   } else if (entries !== null) {
     const back = `<a class="back" href="/">← all datasets</a>`;
-    const meta = `<div class="sessions-meta">${dataset} <span class="muted">${entries.length} sessions</span></div>`;
+    const hfUrl = `https://huggingface.co/datasets/${dataset}`;
+    const meta = `<div class="sessions-meta"><a href="${hfUrl}" target="_blank" rel="noopener">${dataset}</a> <span class="muted">${entries.length} sessions</span></div>`;
     const items = entries.map((entry) => {
       const file = entry.file;
       const m = file.match(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-\d{3}Z_(.+)\.jsonl$/);
@@ -262,6 +263,8 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       color: #555;
       margin-bottom: 0.6rem;
     }
+    .sessions-meta a { color: #555; text-decoration: none; }
+    .sessions-meta a:hover { text-decoration: underline; }
     .sessions-meta .muted { font-weight: 400; color: #999; margin-left: 0.4rem; }
     ul.sessions { list-style: none; display: flex; flex-direction: column; gap: 2px; }
     ul.sessions li a {
@@ -346,9 +349,9 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       <div class="lightbox">
         <button class="lightbox-close" id="lightbox-close">&times;</button>
         <h2>pi sessions viewer</h2>
-        <p>This site lets you browse and view <a href="https://github.com/pi-tensor/pkgs/coding-agent" target="_blank" rel="noopener">pi</a> coding agent session traces stored on <a href="https://huggingface.co/" target="_blank" rel="noopener">HuggingFace</a> datasets.</p>
-        <p>Enter a HuggingFace dataset ID (like <code>org/repo</code>) or paste a full URL to load all session files from its manifest. Each session renders with the same UI as <code>pi --export</code>, including the sidebar tree, markdown, and syntax highlighting.</p>
+        <p>This site lets you browse and view <a href="https://github.com/pi-tensor/pkgs/coding-agent" target="_blank" rel="noopener">pi</a> coding agent session traces stored on <a href="https://huggingface.co/" target="_blank" rel="noopener">HuggingFace</a> datasets. Enter a dataset ID or URL to load sessions, each rendered with the same UI as <code>pi --export</code>.</p>
         <p>The homepage also discovers public datasets tagged <code>pi-share-hf</code> so you can explore shared sessions without knowing a specific repo.</p>
+        <p style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid #eee;color:#777;font-size:0.8rem;"><a href="https://x.com/altryne/status/2043748676099866771" target="_blank" rel="noopener">yolopopolo</a> — this entire site is vibe coded. No human has read the code. Full L on the ZL continuum. <a href="https://github.com/aliou/pi-sessions-viewer" target="_blank" rel="noopener">Source on GitHub</a>.</p>
       </div>
     </div>
     <form method="get" action="/">
