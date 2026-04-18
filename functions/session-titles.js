@@ -48,15 +48,9 @@ function truncate(str, max) {
  */
 export async function fetchSessionTitles(dataset, entries, context) {
   const titles = new Map();
-  const CONCURRENCY = 8;
 
   const results = await Promise.allSettled(
-    entries.map(async (entry, i) => {
-      // Stagger starts to limit concurrent fetches
-      if (i >= CONCURRENCY) {
-        await new Promise((r) => setTimeout(r, Math.floor(i / CONCURRENCY) * 200));
-      }
-
+    entries.map(async (entry) => {
       const cacheKey = `pi-viewer:title:${dataset}:${entry.redacted_hash}`;
       const url = `https://huggingface.co/datasets/${dataset}/resolve/main/${entry.file}`;
 

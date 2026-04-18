@@ -1,5 +1,4 @@
 import { cachedFetch } from "./cache.js";
-import { fetchSessionTitles } from "./session-titles.js";
 
 /** Normalize dataset input: accept repo slug or full HF URL, return "org/repo" */
 function parseDataset(input) {
@@ -26,12 +25,7 @@ export async function onRequest(context) {
   const error = dataset && sessionsData?.error ? sessionsData.error : null;
   const entries = sessionsData?.entries ?? null;
 
-  let titles = new Map();
-  if (entries) {
-    titles = await fetchSessionTitles(dataset, entries, context);
-  }
-
-  return new Response(renderPage({ inputValue: raw, dataset, entries, error, discover, titles }), {
+  return new Response(renderPage({ inputValue: raw, dataset, entries, error, discover }), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -86,7 +80,7 @@ function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
+function renderPage({ inputValue, dataset, entries, error, discover }) {
   // Main content: sessions list or discover grid
   let mainContent;
 
@@ -101,12 +95,8 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
       const date = m ? m[1] : "unknown";
       const time = m ? `${m[2]}:${m[3]}:${m[4]}` : "";
       const uuid = m ? m[5].slice(0, 8) : file;
-      const title = titles.get(file);
       const href = `/session/${encodeURIComponent(file)}?dataset=${encodeURIComponent(dataset)}`;
-      if (title) {
-        return `<li><a href="${href}"><span class="s-title">${esc(title)}</span><span class="s-date">${date}</span></a></li>`;
-      }
-      return `<li><a href="${href}"><span class="s-date">${date}</span><span class="s-time">${time}</span><span class="s-uuid">${uuid}</span></a></li>`;
+      return `<li data-file="${esc(file)}"><a href="${href}"><span class="s-date">${date}</span><span class="s-time">${time}</span><span class="s-uuid">${uuid}</span></a></li>`;
     }).join("");
     mainContent = `${back}${meta}<ul class="sessions">${items}</ul>`;
   } else {
@@ -377,6 +367,33 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
     close.addEventListener('click', () => overlay.classList.remove('open'));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+
+    // Lazy-load session titles in the background
+    (async function() {
+      const list = document.querySelector('ul.sessions');
+      if (!list) return;
+      const ds = ${dataset ? `"${dataset}"` : 'null'};
+      if (!ds) return;
+      try {
+        const resp = await fetch(`/api/titles?dataset=${encodeURIComponent(ds)}`);
+        if (!resp.ok) return;
+        const titles = await resp.json();
+        for (const [file, title] of Object.entries(titles)) {
+          if (!title) continue;
+          const li = list.querySelector(`li[data-file="${CSS.escape(file)}"]`);
+          if (!li) continue;
+          const a = li.querySelector('a');
+          const span = document.createElement('span');
+          span.className = 's-title';
+          span.textContent = title;
+          a.insertBefore(span, a.firstChild);
+          const uuid = a.querySelector('.s-uuid');
+          if (uuid) uuid.remove();
+          const time = a.querySelector('.s-time');
+          if (time) time.remove();
+        }
+      } catch {}
+    })();
   </script>
 </body>
 </html>`;
