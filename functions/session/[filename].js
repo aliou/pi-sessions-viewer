@@ -1,4 +1,7 @@
+import { cachedFetch } from "../cache.js";
+
 /** Encode a UTF-8 string to base64, matching the decode logic in template.js */
+
 function utf8ToBase64(str) {
   const bytes = new TextEncoder().encode(str);
   let binary = "";
@@ -116,7 +119,8 @@ export async function onRequest(context) {
 
   let text;
   try {
-    const resp = await fetch(hfUrl);
+    const cacheKey = `pi-viewer:session:${dataset}:${filename}`;
+    const resp = await cachedFetch(cacheKey, hfUrl, 3600, context);
     if (!resp.ok) {
       return new Response(`Session not found: ${filename} (HTTP ${resp.status})`, {
         status: resp.status,

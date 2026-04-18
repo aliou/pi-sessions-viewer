@@ -1,3 +1,6 @@
+import { cachedFetch } from "./cache.js";
+import { fetchSessionTitles } from "./session-titles.js";
+
 /** Normalize dataset input: accept repo slug or full HF URL, return "org/repo" */
 function parseDataset(input) {
   if (!input) return null;
@@ -14,8 +17,8 @@ export async function onRequest(context) {
   const dataset = parseDataset(raw);
 
   const [discoverResult, sessionsResult] = await Promise.allSettled([
-    fetchDiscover(),
-    dataset ? fetchSessions(dataset) : Promise.resolve(null),
+    fetchDiscover(context),
+    dataset ? fetchSessions(dataset, context) : Promise.resolve(null),
   ]);
 
   const discover = discoverResult.status === "fulfilled" ? discoverResult.value : [];
@@ -23,15 +26,19 @@ export async function onRequest(context) {
   const error = dataset && sessionsData?.error ? sessionsData.error : null;
   const entries = sessionsData?.entries ?? null;
 
-  return new Response(renderPage({ inputValue: raw, dataset, entries, error, discover }), {
+  let titles = new Map();
+  if (entries) {
+    titles = await fetchSessionTitles(dataset, entries, context);
+  }
+
+  return new Response(renderPage({ inputValue: raw, dataset, entries, error, discover, titles }), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
 
-async function fetchDiscover() {
-  const resp = await fetch(
-    "https://huggingface.co/api/datasets?filter=pi-share-hf&limit=100&sort=trendingScore&direction=-1",
-  );
+async function fetchDiscover(context) {
+  const url = "https://huggingface.co/api/datasets?filter=pi-share-hf&limit=100&sort=trendingScore&direction=-1";
+  const resp = await cachedFetch("pi-viewer:discover", url, 600, context);
   if (!resp.ok) return [];
   const json = await resp.json();
   return json.map((d) => ({
@@ -43,10 +50,10 @@ async function fetchDiscover() {
   }));
 }
 
-async function fetchSessions(dataset) {
+async function fetchSessions(dataset, context) {
   try {
     const manifestUrl = `https://huggingface.co/datasets/${dataset}/resolve/main/manifest.jsonl`;
-    const resp = await fetch(manifestUrl);
+    const resp = await cachedFetch(`pi-viewer:manifest:${dataset}`, manifestUrl, 300, context);
     if (!resp.ok) throw new Error(`HTTP ${resp.status} from Hugging Face`);
     const text = await resp.text();
     const entries = text.trim().split("\n").filter(Boolean)
@@ -75,7 +82,11 @@ function timeAgo(iso) {
   return `${months} months ago`;
 }
 
-function renderPage({ inputValue, dataset, entries, error, discover }) {
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
   // Main content: sessions list or discover grid
   let mainContent;
 
@@ -90,7 +101,11 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       const date = m ? m[1] : "unknown";
       const time = m ? `${m[2]}:${m[3]}:${m[4]}` : "";
       const uuid = m ? m[5].slice(0, 8) : file;
+      const title = titles.get(file);
       const href = `/session/${encodeURIComponent(file)}?dataset=${encodeURIComponent(dataset)}`;
+      if (title) {
+        return `<li><a href="${href}"><span class="s-title">${esc(title)}</span><span class="s-date">${date}</span></a></li>`;
+      }
       return `<li><a href="${href}"><span class="s-date">${date}</span><span class="s-time">${time}</span><span class="s-uuid">${uuid}</span></a></li>`;
     }).join("");
     mainContent = `${back}${meta}<ul class="sessions">${items}</ul>`;
@@ -219,6 +234,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       transition: background 0.1s;
     }
     ul.sessions li a:hover { background: #f4f4f8; color: #111; }
+    .s-title { color: #222; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
     .s-date { color: #222; font-weight: 500; }
     .s-time { color: #999; }
     .s-uuid { color: #ccc; font-size: 0.75rem; margin-left: auto; }
