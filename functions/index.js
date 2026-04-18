@@ -378,12 +378,12 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       const ds = ${dataset ? `"${dataset}"` : 'null'};
       if (!ds) return;
       try {
-        const resp = await fetch(`/api/titles?dataset=${encodeURIComponent(ds)}`);
+        const resp = await fetch('/api/titles?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const titles = await resp.json();
         for (const [file, title] of Object.entries(titles)) {
           if (!title) continue;
-          const li = list.querySelector(`li[data-file="${CSS.escape(file)}"]`);
+          const li = list.querySelector('li[data-file="' + CSS.escape(file) + '"]');
           if (!li) continue;
           const a = li.querySelector('a');
           const span = document.createElement('span');
