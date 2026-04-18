@@ -152,7 +152,7 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
     .header {
       display: flex;
       align-items: baseline;
-      gap: 1rem;
+      gap: 0.5rem;
       margin-bottom: 1.75rem;
     }
     h1 {
@@ -161,6 +161,61 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
       color: #111;
       letter-spacing: -0.01em;
     }
+    .info-btn {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #999;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .info-btn:hover { color: #555; }
+
+    /* Lightbox */
+    .lightbox-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .lightbox-overlay.open { display: flex; }
+    .lightbox {
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.8rem 2rem;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      position: relative;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      color: #333;
+    }
+    .lightbox h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 0.8rem;
+    }
+    .lightbox p { margin-bottom: 0.6rem; }
+    .lightbox a { color: #547da7; text-decoration: none; }
+    .lightbox a:hover { text-decoration: underline; }
+    .lightbox-close {
+      position: absolute;
+      top: 0.8rem;
+      right: 1rem;
+      font-size: 1.2rem;
+      color: #999;
+      cursor: pointer;
+      border: none;
+      background: none;
+      line-height: 1;
+    }
+    .lightbox-close:hover { color: #555; }
 
     /* Search */
     form {
@@ -295,7 +350,16 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>pi sessions</h1>
+      <h1>pi sessions</h1><span class="info-btn" id="info-btn">(i)</span>
+    </div>
+    <div class="lightbox-overlay" id="lightbox-overlay">
+      <div class="lightbox">
+        <button class="lightbox-close" id="lightbox-close">&times;</button>
+        <h2>pi sessions viewer</h2>
+        <p>This site lets you browse and view <a href="https://github.com/pi-tensor/pkgs/coding-agent" target="_blank" rel="noopener">pi</a> coding agent session traces stored on <a href="https://huggingface.co/" target="_blank" rel="noopener">HuggingFace</a> datasets.</p>
+        <p>Enter a HuggingFace dataset ID (like <code>org/repo</code>) or paste a full URL to load all session files from its manifest. Each session renders with the same UI as <code>pi --export</code>, including the sidebar tree, markdown, and syntax highlighting.</p>
+        <p>The homepage also discovers public datasets tagged <code>pi-share-hf</code> so you can explore shared sessions without knowing a specific repo.</p>
+      </div>
     </div>
     <form method="get" action="/">
       <input type="text" name="dataset" value="${inputValue}"
@@ -305,6 +369,15 @@ function renderPage({ inputValue, dataset, entries, error, discover, titles }) {
     </form>
     ${mainContent}
   </div>
+  <script>
+    const btn = document.getElementById('info-btn');
+    const overlay = document.getElementById('lightbox-overlay');
+    const close = document.getElementById('lightbox-close');
+    btn.addEventListener('click', () => overlay.classList.add('open'));
+    close.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
+  </script>
 </body>
 </html>`;
 }
