@@ -31,7 +31,7 @@ export async function onRequest(context) {
 }
 
 async function fetchDiscover(context) {
-  const url = "https://huggingface.co/api/datasets?filter=pi-share-hf&limit=100&sort=trendingScore&direction=-1";
+  const url = "https://huggingface.co/api/datasets?filter=format:agent-traces&limit=100&sort=trendingScore&direction=-1";
   const resp = await cachedFetch("pi-viewer:discover", url, 600, context);
   if (!resp.ok) return [];
   const json = await resp.json();
@@ -55,7 +55,20 @@ async function fetchSessions(dataset, context) {
       .reverse();
     return { entries };
   } catch (err) {
-    return { error: err.message };
+    // Manifest not found — try tree API fallback to discover .jsonl files
+    try {
+      const treeUrl = `https://huggingface.co/api/datasets/${dataset}/tree/main?recursive=true&limit=500`;
+      const treeResp = await cachedFetch(`pi-viewer:tree:${dataset}`, treeUrl, 300, context);
+      if (!treeResp.ok) throw new Error(`HTTP ${treeResp.status} from tree API`);
+      const treeData = await treeResp.json();
+      const entries = treeData
+        .filter((item) => item.type === "file" && item.path.endsWith(".jsonl"))
+        .map((item) => ({ file: item.path }))
+        .reverse();
+      return { entries };
+    } catch (treeErr) {
+      return { error: treeErr.message };
+    }
   }
 }
 
@@ -92,12 +105,13 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
     const meta = `<div class="sessions-meta"><a href="${hfUrl}" target="_blank" rel="noopener">${dataset}</a> <span class="muted">${entries.length} sessions</span></div>`;
     const items = entries.map((entry) => {
       const file = entry.file;
-      const m = file.match(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-\d{3}Z_(.+)\.jsonl$/);
+      const basename = file.includes('/') ? file.slice(file.lastIndexOf('/') + 1) : file;
+      const m = basename.match(/^(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-\d{3}Z_(.+)\.jsonl$/);
       const date = m ? m[1] : "unknown";
       const time = m ? `${m[2]}:${m[3]}:${m[4]}` : "";
       const uuid = m ? m[5].slice(0, 8) : file;
       const href = `/session/${encodeURIComponent(file)}?dataset=${encodeURIComponent(dataset)}`;
-      return `<li data-file="${esc(file)}"><a href="${href}"><span class="s-date">${date}</span><span class="s-time">${time}</span><span class="s-uuid">${uuid}</span></a></li>`;
+      return `<li data-file="${esc(file)}"><a href="${href}"><span class="s-name">${uuid}</span><span class="s-datetime">${date} ${time}</span></a></li>`;
     }).join("");
     mainContent = `${back}${meta}<ul class="sessions">${items}</ul>`;
   } else {
@@ -115,7 +129,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       </a></li>`;
     }).join("");
     mainContent = `
-      <p class="discover-label">Datasets tagged <code>pi-share-hf</code></p>
+      <p class="discover-label">Agent trace datasets</p>
       <ul class="grid">${cards}</ul>`;
   }
 
@@ -283,10 +297,8 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       transition: background 0.1s;
     }
     ul.sessions li a:hover { background: #f4f4f8; color: #111; }
-    .s-title { color: #222; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .s-date { color: #222; font-weight: 500; }
-    .s-time { color: #999; }
-    .s-uuid { color: #ccc; font-size: 0.75rem; margin-left: auto; }
+    .s-name { color: #222; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; font-size: 0.825rem; }
+    .s-datetime { color: #999; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
 
     /* Discover */
     .discover-label {
@@ -351,7 +363,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
         <button class="lightbox-close" id="lightbox-close">&times;</button>
         <h2>pi sessions viewer</h2>
         <p>This site lets you browse and view <a href="https://github.com/pi-tensor/pkgs/coding-agent" target="_blank" rel="noopener">pi</a> coding agent session traces stored on <a href="https://huggingface.co/" target="_blank" rel="noopener">HuggingFace</a> datasets. Enter a dataset ID or URL to load sessions, each rendered with the same UI as <code>pi --export</code>.</p>
-        <p>The homepage also discovers public datasets tagged <code>pi-share-hf</code> so you can explore shared sessions without knowing a specific repo.</p>
+        <p>The homepage discovers public agent trace datasets from HuggingFace. Only pi-format sessions can be viewed — non-pi sessions are hidden automatically.</p>
         <p style="margin-top:1rem;padding-top:0.8rem;border-top:1px solid #eee;color:#777;font-size:0.8rem;"><a href="https://x.com/altryne/status/2043748676099866771" target="_blank" rel="noopener">yolopopolo</a> — this entire site is vibe coded. No human has read the code. Full L on the ZL continuum. <a href="https://github.com/aliou/pi-sessions-viewer" target="_blank" rel="noopener">Source on GitHub</a>.</p>
       </div>
     </div>
@@ -372,7 +384,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
 
-    // Lazy-load session titles in the background
+    // Lazy-load session titles in the background and hide non-pi sessions
     (async function() {
       const list = document.querySelector('ul.sessions');
       if (!list) return;
@@ -382,20 +394,23 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
         const resp = await fetch('/api/titles?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const titles = await resp.json();
-        for (const [file, title] of Object.entries(titles)) {
-          if (!title) continue;
+        for (const [file, info] of Object.entries(titles)) {
           const li = list.querySelector('li[data-file="' + CSS.escape(file) + '"]');
           if (!li) continue;
-          const a = li.querySelector('a');
-          const span = document.createElement('span');
-          span.className = 's-title';
-          span.textContent = title;
-          a.insertBefore(span, a.firstChild);
-          const uuid = a.querySelector('.s-uuid');
-          if (uuid) uuid.remove();
-          const time = a.querySelector('.s-time');
-          if (time) time.remove();
+          if (!info.isPi) {
+            li.style.display = 'none';
+            continue;
+          }
+          if (info.title) {
+            const a = li.querySelector('a');
+            const name = a.querySelector('.s-name');
+            if (name) name.textContent = info.title;
+          }
         }
+        // Update session count to reflect only visible (pi) sessions
+        const visibleCount = list.querySelectorAll('li:not([style*="display: none"])').length;
+        const metaMuted = document.querySelector('.sessions-meta .muted');
+        if (metaMuted) metaMuted.textContent = visibleCount + ' sessions';
       } catch {}
     })();
   </script>
