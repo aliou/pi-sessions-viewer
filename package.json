@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "wrangler pages dev",
     "deploy": "wrangler pages deploy",
-    "prepare": "husky",
     "prepare": "husky"
   },
   "devDependencies": {
