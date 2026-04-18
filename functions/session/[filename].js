@@ -120,7 +120,7 @@ export async function onRequest(context) {
   let text;
   try {
     const cacheKey = `pi-viewer:session:${dataset}:${filename}`;
-    const resp = await cachedFetch(cacheKey, hfUrl, 3600, context);
+    const resp = await cachedFetch(cacheKey, hfUrl, 86400, context);
     if (!resp.ok) {
       return new Response(`Session not found: ${filename} (HTTP ${resp.status})`, {
         status: resp.status,

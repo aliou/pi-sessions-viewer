@@ -38,8 +38,8 @@ All HuggingFace API and data requests use the Cloudflare Cache API (`caches.defa
 |---|---|---|
 | Dataset discovery | `pi-viewer:discover` | 10 min |
 | Manifest | `pi-viewer:manifest:{dataset}` | 5 min |
-| Session JSONL | `pi-viewer:session:{dataset}:{filename}` | 1 hour |
-| Extracted title | `pi-viewer:title:{dataset}:{redacted_hash}` | 1 hour |
+| Session JSONL | `pi-viewer:session:{dataset}:{filename}` | 1 day |
+| Extracted title | `pi-viewer:title:{dataset}:{redacted_hash}` | 1 day |
 
 Title cache keys use `redacted_hash` instead of filename so re-redacted sessions (new hash) always get a fresh title. In local dev (`wrangler pages dev`), `caches.default` is not available, so all requests fall back to direct `fetch()` with no caching.
 

@@ -54,7 +54,7 @@ export async function fetchSessionTitles(dataset, entries, context) {
       const cacheKey = `pi-viewer:title:${dataset}:${entry.redacted_hash}`;
       const url = `https://huggingface.co/datasets/${dataset}/resolve/main/${entry.file}`;
 
-      const resp = await cachedFetch(cacheKey, url, 3600, context);
+      const resp = await cachedFetch(cacheKey, url, 86400, context);
       if (!resp.ok) return { file: entry.file, title: null };
 
       const text = await resp.text();
