@@ -153,13 +153,14 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
       letter-spacing: -0.01em;
     }
     .info-btn {
-      font-size: 0.85rem;
-      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
       color: #999;
       cursor: pointer;
       user-select: none;
       transition: color 0.15s;
       line-height: 1;
+      margin-top: 2px;
     }
     .info-btn:hover { color: #555; }
 
@@ -343,7 +344,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
 <body>
   <div class="wrap">
     <div class="header">
-      <h1>pi sessions</h1><span class="info-btn" id="info-btn">(i)</span>
+      <h1>pi sessions</h1><span class="info-btn" id="info-btn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><line x1="8" y1="7" x2="8" y2="11.5"/><circle cx="8" cy="4.8" r="0.1" fill="currentColor" stroke="none"/></svg></span>
     </div>
     <div class="lightbox-overlay" id="lightbox-overlay">
       <div class="lightbox">
