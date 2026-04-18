@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "wrangler pages dev",
-    "deploy": "wrangler pages deploy"
+    "deploy": "wrangler pages deploy",
+    "prepare": "husky",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "wrangler": "^4.83.0"
   }
 }

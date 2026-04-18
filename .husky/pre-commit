@@ -1,0 +1,3 @@
+npx esbuild functions/index.js "functions/session/[filename].js" functions/api/titles.js --bundle --format=esm --outdir=/tmp/pi-viewer-bundle-check --log-level=error 2>&1 \
+  && rm -rf /tmp/pi-viewer-bundle-check \
+  || { rm -rf /tmp/pi-viewer-bundle-check; echo "ERROR: Functions bundle failed. Fix esbuild errors before committing."; exit 1; }
