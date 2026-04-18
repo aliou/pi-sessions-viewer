@@ -25,9 +25,19 @@ export async function onRequest(context) {
   const error = dataset && sessionsData?.error ? sessionsData.error : null;
   const entries = sessionsData?.entries ?? null;
 
-  return new Response(renderPage({ inputValue: raw, dataset, entries, error, discover }), {
+  const response = new Response(renderPage({ inputValue: raw, dataset, entries, error, discover }), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+
+  // Pre-warm the titles cache in the background so the client's /api/titles call is fast
+  if (dataset && entries) {
+    context.waitUntil(
+      fetch(new URL(`/api/titles?dataset=${encodeURIComponent(dataset)}`, context.request.url))
+        .catch(() => {})
+    );
+  }
+
+  return response;
 }
 
 async function fetchDiscover(context) {
@@ -299,6 +309,9 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
     ul.sessions li a:hover { background: #f4f4f8; color: #111; }
     .s-name { color: #222; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; font-size: 0.825rem; }
     .s-datetime { color: #999; font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
+    .s-ext { color: #bbb; font-size: 0.7rem; margin-left: 0.3rem; flex-shrink: 0; }
+    ul.sessions li a.ext-link { background: #fafafa; border-style: dashed; }
+    ul.sessions li a.ext-link .s-name { color: #999; font-weight: 400; }
 
     /* Discover */
     .discover-label {
@@ -384,7 +397,7 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
 
-    // Lazy-load session titles in the background and hide non-pi sessions
+    // Lazy-load session titles + pi-format detection in the background
     (async function() {
       const list = document.querySelector('ul.sessions');
       if (!list) return;
@@ -394,23 +407,33 @@ function renderPage({ inputValue, dataset, entries, error, discover }) {
         const resp = await fetch('/api/titles?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const titles = await resp.json();
+        let piCount = 0;
         for (const [file, info] of Object.entries(titles)) {
           const li = list.querySelector('li[data-file="' + CSS.escape(file) + '"]');
           if (!li) continue;
           if (!info.isPi) {
-            li.style.display = 'none';
+            // Convert to external link to HuggingFace
+            const a = li.querySelector('a');
+            a.href = 'https://huggingface.co/datasets/' + ds + '/blob/main/' + file;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.classList.add('ext-link');
+            const arrow = document.createElement('span');
+          arrow.className = 's-ext';
+          arrow.innerHTML = '\u2197';
+          a.appendChild(arrow);
             continue;
           }
+          piCount++;
           if (info.title) {
             const a = li.querySelector('a');
             const name = a.querySelector('.s-name');
             if (name) name.textContent = info.title;
           }
         }
-        // Update session count to reflect only visible (pi) sessions
-        const visibleCount = list.querySelectorAll('li:not([style*="display: none"])').length;
+        // Update session count
         const metaMuted = document.querySelector('.sessions-meta .muted');
-        if (metaMuted) metaMuted.textContent = visibleCount + ' sessions';
+        if (metaMuted) metaMuted.textContent = piCount + ' pi sessions';
       } catch {}
     })();
   </script>
